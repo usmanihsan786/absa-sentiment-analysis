@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SentimentAI — Real-time Review Analyzer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+<style>
+:root {
+  --bg: #0a0c12;
+  --surface: #111420;
+  --surface2: #171b2b;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8eaf2;
+  --muted: #6b7280;
+  --accent: #6c8bff;
+  --accent2: #a78bfa;
+  --pos: #34d399;
+  --neg: #f87171;
+  --warn: #fbbf24;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+
+/* Orbs */
+.orb { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.18; pointer-events: none; z-index: 0; animation: drift 18s ease-in-out infinite alternate; }
+.orb1 { width: 600px; height: 600px; background: #4f46e5; top: -180px; left: -120px; animation-duration: 22s; }
+.orb2 { width: 500px; height: 500px; background: #7c3aed; bottom: -150px; right: -80px; animation-duration: 18s; }
+.orb3 { width: 350px; height: 350px; background: #0ea5e9; top: 40%; left: 55%; animation-duration: 26s; }
+@keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px,40px) scale(1.08); } }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; position: relative; z-index: 1; transition: box-shadow 0.3s, border-color 0.3s, transform 0.25s; }
+.card:hover { border-color: var(--border2); box-shadow: 0 8px 40px rgba(0,0,0,0.45); }
+.card-inner { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; }
+
+/* Nav */
+nav { position: sticky; top: 0; z-index: 100; background: rgba(10,12,18,0.85); backdrop-filter: blur(18px); border-bottom: 1px solid var(--border); }
+.nav-logo span { font-family: 'Instrument Serif', serif; font-size: 1.25rem; letter-spacing: -0.01em; }
+.nav-link { font-size: 0.85rem; color: var(--muted); cursor: pointer; transition: color 0.2s; padding: 4px 10px; border-radius: 6px; user-select: none; }
+.nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+/* Stat */
+.stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.stat-num { font-size: 2rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-family: 'Instrument Serif', serif; }
+.stat-label { font-size: 0.78rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Buttons */
+.btn-primary { background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); color: #fff; border: none; border-radius: 10px; padding: 0.65rem 1.6rem; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 20px rgba(108,139,255,0.35); letter-spacing: 0.01em; display: inline-flex; align-items: center; gap: 8px; }
+.btn-primary:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 8px 28px rgba(108,139,255,0.45); }
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border2); border-radius: 10px; padding: 0.6rem 1.4rem; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 0.88rem; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+.btn-outline:hover { background: var(--surface2); border-color: var(--accent); }
+.btn-sm { padding: 0.35rem 0.9rem; font-size: 0.78rem; }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 4px 12px; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.02em; }
+.badge.pos { background: rgba(52,211,153,0.15); color: var(--pos); border: 1px solid rgba(52,211,153,0.25); }
+.badge.neg { background: rgba(248,113,113,0.15); color: var(--neg); border: 1px solid rgba(248,113,113,0.25); }
+.badge.warn { background: rgba(251,191,36,0.15); color: var(--warn); border: 1px solid rgba(251,191,36,0.25); }
+
+/* Model cards */
+.model-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: border-color 0.3s, box-shadow 0.3s, transform 0.25s; }
+.model-card:hover { border-color: var(--border2); box-shadow: 0 6px 32px rgba(0,0,0,0.4); transform: translateY(-2px); }
+.model-card.best { border-color: rgba(108,139,255,0.4); background: linear-gradient(135deg, rgba(108,139,255,0.08) 0%, rgba(167,139,250,0.05) 100%); }
+.metric-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.metric-row:last-child { border-bottom: none; }
+.metric-key { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+.metric-val { font-size: 0.92rem; font-weight: 700; }
+
+/* Section */
+.section-title { font-family: 'Instrument Serif', serif; font-size: 1.45rem; letter-spacing: -0.02em; }
+.section-sub { font-size: 0.83rem; color: var(--muted); margin-top: 3px; }
+
+/* Confidence bar */
+.conf-bar-bg { background: var(--surface2); border-radius: 999px; height: 10px; overflow: hidden; }
+.conf-bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; }
+th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+td { padding: 10px 14px; font-size: 0.86rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.025); }
+
+/* Textarea */
+.review-input { width:100%; height:140px; background:var(--surface2); border:1.5px solid var(--border2); border-radius:12px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.9rem; padding:14px; resize:vertical; outline:none; transition:border-color 0.2s; }
+.review-input:focus { border-color: var(--accent); }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.25); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+
+/* Fade */
+@keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+.fade-up { animation: fadeUp 0.55s ease forwards; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+/* Result glow */
+.result-pos { box-shadow: 0 0 40px rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.25) !important; }
+.result-neg { box-shadow: 0 0 40px rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.25) !important; }
+
+/* Example chips */
+.example-chip { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 6px 12px; font-size: 0.78rem; cursor: pointer; transition: border-color 0.2s, background 0.2s; line-height: 1.4; }
+.example-chip:hover { border-color: var(--accent); background: rgba(108,139,255,0.08); }
+
+/* History */
+.hist-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+.hist-row:last-child { border-bottom: none; }
+.hist-row:hover { background: rgba(255,255,255,0.025); }
+
+/* Word counter */
+.word-counter { font-size: 0.75rem; color: var(--muted); }
+.word-counter.warn { color: var(--warn); }
+
+/* Model selector */
+.model-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 14px; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; color: var(--muted); }
+.model-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(108,139,255,0.1); }
+
+/* Status dot */
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neg); flex-shrink: 0; transition: background 0.3s; }
+.status-dot.online { background: var(--pos); box-shadow: 0 0 8px rgba(52,211,153,0.6); animation: pulse-green 2s ease-in-out infinite; }
+@keyframes pulse-green { 0%,100%{box-shadow:0 0 5px rgba(52,211,153,0.5)} 50%{box-shadow:0 0 14px rgba(52,211,153,0.8)} }
+
+@media(max-width:640px) { .stat-num { font-size:1.55rem; } .section-title { font-size:1.15rem; } }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- ══ NAVBAR ══ -->
+<nav>
+  <div class="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
+    <div class="nav-logo flex items-center gap-3">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#6c8bff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:1rem;">🔍</div>
+      <span>Sentiment <em style="font-style:italic;color:var(--accent2);">AI</em></span>
+    </div>
+    <div class="hidden md:flex items-center gap-1">
+      <span class="nav-link" onclick="scrollTo('#section-tester')">Analyzer</span>
+      <span class="nav-link" onclick="scrollTo('#section-results')">Models</span>
+      <span class="nav-link" onclick="scrollTo('#section-history')">History</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div id="api-status" class="flex items-center gap-2" style="font-size:0.78rem;color:var(--muted);">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-label">Connecting…</span>
+      </div>
+      <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6c8bff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;">A</div>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-7xl mx-auto px-5 py-10 flex flex-col gap-10" style="position:relative;z-index:1;">
+
+  <!-- ══ STAT CARDS ══ -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-4 fade-up">
+    <div class="card p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="stat-icon" style="background:rgba(108,139,255,0.15);">📊</div>
+        <span style="font-size:0.78rem;font-weight:600;color:var(--muted);">Dataset</span>
+      </div>
+      <div class="stat-num" id="s-total">—</div>
+      <div class="stat-label mt-1">Total Reviews</div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="stat-icon" style="background:rgba(52,211,153,0.15);">😊</div>
+        <span style="font-size:0.78rem;font-weight:600;color:var(--pos);">Positive</span>
+      </div>
+      <div class="stat-num" style="color:var(--pos);" id="s-pos">—</div>
+      <div class="stat-label mt-1">Positive Reviews</div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="stat-icon" style="background:rgba(248,113,113,0.15);">😡</div>
+        <span style="font-size:0.78rem;font-weight:600;color:var(--neg);">Negative</span>
+      </div>
+      <div class="stat-num" style="color:var(--neg);" id="s-neg">—</div>
+      <div class="stat-label mt-1">Negative Reviews</div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="stat-icon" style="background:rgba(167,139,250,0.15);">🏆</div>
+        <span style="font-size:0.78rem;font-weight:600;color:var(--accent2);">Best</span>
+      </div>
+      <div class="stat-num" style="color:var(--accent2);" id="s-acc">—</div>
+      <div class="stat-label mt-1">Best Accuracy</div>
+    </div>
+  </section>
+
+  <!-- ══ MAIN ANALYZER ══ -->
+  <section id="section-tester" class="card p-7 fade-up" style="animation-delay:0.1s;">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <div class="section-title">Review Analyzer</div>
+        <div class="section-sub">Powered by TF-IDF + scikit-learn — real ML inference, no mock logic</div>
+      </div>
+      <!-- Model selector -->
+      <div class="flex flex-wrap gap-2 items-center">
+        <span style="font-size:0.78rem;color:var(--muted);font-weight:500;">Model:</span>
+        <button class="model-btn active" onclick="selectModel('lr', this)">Logistic Regression</button>
+        <button class="model-btn" onclick="selectModel('svm', this)">Linear SVM</button>
+        <button class="model-btn" onclick="selectModel('nb', this)">Naive Bayes</button>
+      </div>
+    </div>
+
+    <!-- Examples -->
+    <div class="mb-5">
+      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Quick Examples — click to fill:</div>
+      <div class="flex flex-wrap gap-2" id="examples-wrap"></div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-7">
+      <!-- Input -->
+      <div class="flex flex-col gap-3">
+        <div style="position:relative;">
+          <textarea id="review-text" class="review-input"
+            placeholder="Paste or type a customer review…&#10;&#10;e.g. 'The product quality is outstanding and shipping was incredibly fast! Highly recommended.'"
+            oninput="onTextInput(this)"></textarea>
+          <div style="position:absolute;bottom:10px;right:12px;" class="flex items-center gap-3">
+            <span class="word-counter" id="word-count">0 words</span>
+            <span style="font-size:0.72rem;color:var(--border2);">|</span>
+            <span class="word-counter" id="char-count">0 / 5000</span>
+          </div>
+        </div>
+        <div class="flex gap-3 flex-wrap">
+          <button class="btn-primary" id="predict-btn" onclick="predictSentiment()">
+            <span id="btn-icon">🔍</span>
+            <span id="btn-text">Predict Sentiment</span>
+          </button>
+          <button class="btn-outline" onclick="clearAll()">Clear</button>
+        </div>
+        <!-- Error banner -->
+        <div id="error-banner" style="display:none;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:var(--neg);">
+          ⚠ <span id="error-msg"></span>
+        </div>
+      </div>
+
+      <!-- Result panel -->
+      <div>
+        <!-- Placeholder -->
+        <div id="result-placeholder" class="card-inner flex flex-col items-center justify-center gap-3 p-8" style="min-height:220px;text-align:center;">
+          <div style="font-size:2.5rem;opacity:0.4;">🔍</div>
+          <div style="color:var(--muted);font-size:0.88rem;">Enter a review and click<br><strong style="color:var(--text);">Predict Sentiment</strong></div>
+        </div>
+        <!-- Loading -->
+        <div id="result-loading" class="card-inner flex flex-col items-center justify-center gap-4 p-8" style="display:none;min-height:220px;text-align:center;">
+          <div class="spinner" style="width:32px;height:32px;border-width:3px;"></div>
+          <div style="color:var(--muted);font-size:0.88rem;">Running ML inference…</div>
+        </div>
+        <!-- Result -->
+        <div id="result-card" class="card-inner p-6 flex flex-col gap-4" style="display:none;animation:fadeIn 0.4s ease;min-height:220px;">
+          <!-- Top row -->
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div style="font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Prediction</div>
+              <div id="result-badge"></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:0.72rem;color:var(--muted);margin-bottom:2px;">Model</div>
+              <div id="result-model" style="font-size:0.85rem;font-weight:600;color:var(--accent2);"></div>
+            </div>
+          </div>
+          <!-- Confidence bar -->
+          <div>
+            <div class="flex justify-between mb-2">
+              <span style="font-size:0.82rem;color:var(--muted);">Confidence</span>
+              <span id="conf-pct" style="font-size:0.88rem;font-weight:700;"></span>
+            </div>
+            <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-fill" style="width:0%;"></div></div>
+          </div>
+          <!-- Score breakdown -->
+          <div class="grid grid-cols-2 gap-3">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.4rem;margin-bottom:3px;">😊</div>
+              <div id="pos-score" style="font-weight:700;color:var(--pos);font-size:1rem;"></div>
+              <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">Positive Score</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.4rem;margin-bottom:3px;">😡</div>
+              <div id="neg-score" style="font-weight:700;color:var(--neg);font-size:1rem;"></div>
+              <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">Negative Score</div>
+            </div>
+          </div>
+          <!-- Detail -->
+          <div id="result-detail" style="font-size:0.78rem;color:var(--muted);line-height:1.6;padding-top:6px;border-top:1px solid var(--border);"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ MODEL RESULTS ══ -->
+  <section id="section-results" class="fade-up" style="animation-delay:0.15s;">
+    <div class="mb-6">
+      <div class="section-title">Model Performance</div>
+      <div class="section-sub">Trained on 21,055 Amazon reviews — 80/20 stratified split</div>
+    </div>
+    <div class="grid sm:grid-cols-3 gap-4 mb-8" id="model-cards">
+      <!-- populated by JS -->
+    </div>
+    <div class="card p-6">
+      <div style="font-weight:600;margin-bottom:16px;font-size:0.95rem;">Accuracy & F1 Score Comparison</div>
+      <canvas id="barChart" height="120"></canvas>
+    </div>
+  </section>
+
+  <!-- ══ PREDICTION HISTORY ══ -->
+  <section id="section-history" class="card p-7 fade-up" style="animation-delay:0.2s;">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div>
+        <div class="section-title">Prediction History</div>
+        <div class="section-sub">Stored locally in your browser — click any row to re-analyze</div>
+      </div>
+      <button class="btn-outline btn-sm" onclick="clearHistory()">🗑 Clear History</button>
+    </div>
+    <div id="history-empty" style="text-align:center;padding:40px;color:var(--muted);font-size:0.88rem;">
+      No predictions yet. Try the analyzer above!
+    </div>
+    <div id="history-list" style="display:none;border-radius:12px;border:1px solid var(--border);overflow:hidden;">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="text-align:center;padding:24px 0 8px;font-size:0.78rem;color:var(--muted);border-top:1px solid var(--border);">
+    SentimentAI &nbsp;·&nbsp; TF-IDF + Logistic Regression / SVM / Naive Bayes &nbsp;·&nbsp;
+    <span id="footer-status" style="color:var(--accent);">Connecting to backend…</span>
+  </footer>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIGURATION
+═══════════════════════════════════════════════════════════ */
+const API_BASE = 'http://localhost:5000';
+let selectedModel = 'lr';
+let chartInstance = null;
+
+/* ═══════════════════════════════════════════════════════════
+   EXAMPLE REVIEWS
+═══════════════════════════════════════════════════════════ */
+const EXAMPLES = [
+  { text: "Absolutely amazing product! Fast shipping and great quality. Will definitely buy again!", label: "pos" },
+  { text: "Terrible experience. The item broke after one day and customer support was useless.", label: "neg" },
+  { text: "Good value for money, works as expected. Nothing spectacular but gets the job done.", label: "pos" },
+  { text: "Packaging was damaged, product smelled strange. Very disappointed with this purchase.", label: "neg" },
+  { text: "Outstanding quality and the delivery was incredibly quick. Five stars without hesitation!", label: "pos" },
+  { text: "Not what I expected at all. Instructions are unclear and setup was a nightmare.", label: "neg" },
+];
+
+function renderExamples() {
+  const wrap = document.getElementById('examples-wrap');
+  wrap.innerHTML = EXAMPLES.map((ex, i) => `
+    <button class="example-chip" onclick="fillExample(${i})" title="${ex.label === 'pos' ? '😊 Positive' : '😡 Negative'}">
+      ${ex.label === 'pos' ? '😊' : '😡'} ${ex.text.slice(0, 52)}…
+    </button>
+  `).join('');
+}
+
+function fillExample(i) {
+  const ta = document.getElementById('review-text');
+  ta.value = EXAMPLES[i].text;
+  onTextInput(ta);
+  ta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TEXT INPUT HANDLERS
+═══════════════════════════════════════════════════════════ */
+function onTextInput(ta) {
+  const text = ta.value;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const chars = text.length;
+
+  const wc = document.getElementById('word-count');
+  const cc = document.getElementById('char-count');
+  wc.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+  cc.textContent = `${chars} / 5000`;
+  cc.className = 'word-counter' + (chars > 4500 ? ' warn' : '');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODEL SELECTOR
+═══════════════════════════════════════════════════════════ */
+function selectModel(model, btn) {
+  selectedModel = model;
+  document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PREDICT — REAL ML INFERENCE
+═══════════════════════════════════════════════════════════ */
+async function predictSentiment() {
+  const text = document.getElementById('review-text').value.trim();
+  if (!text) { showError('Please enter a review text.'); return; }
+  if (text.length > 5000) { showError('Text exceeds 5000 character limit.'); return; }
+
+  hideError();
+  setBusy(true);
+  showLoading();
+
+  try {
+    const resp = await fetch(`${API_BASE}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, model: selectedModel })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Server error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    renderResult(data, text);
+    saveToHistory(data, text);
+
+  } catch (err) {
+    showLoading(false);
+    showError(err.message.includes('Failed to fetch')
+      ? 'Cannot reach backend. Make sure the Flask server is running on port 5000.'
+      : err.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderResult(data, rawText) {
+  const isPos = data.sentiment === 'positive';
+  const pct   = Math.round(data.confidence * 100);
+  const emoji = isPos ? '😊' : '😡';
+
+  // Card classes
+  const card = document.getElementById('result-card');
+  card.classList.remove('result-pos', 'result-neg');
+  card.classList.add(isPos ? 'result-pos' : 'result-neg');
+
+  document.getElementById('result-badge').innerHTML =
+    `<span class="badge ${isPos ? 'pos' : 'neg'}" style="font-size:0.95rem;padding:6px 16px;">${emoji} ${isPos ? 'Positive' : 'Negative'}</span>`;
+
+  document.getElementById('result-model').textContent = data.model || selectedModel;
+  document.getElementById('conf-pct').textContent = pct + '%';
+  document.getElementById('conf-pct').style.color = isPos ? 'var(--pos)' : 'var(--neg)';
+
+  const fill = document.getElementById('conf-fill');
+  fill.style.width = '0%';
+  fill.style.background = isPos
+    ? 'linear-gradient(90deg,#34d399,#10b981)'
+    : 'linear-gradient(90deg,#f87171,#ef4444)';
+  setTimeout(() => { fill.style.width = pct + '%'; }, 60);
+
+  document.getElementById('pos-score').textContent = Math.round(data.pos_score * 100) + '%';
+  document.getElementById('neg-score').textContent = Math.round(data.neg_score * 100) + '%';
+
+  document.getElementById('result-detail').innerHTML =
+    `<strong>${data.word_count}</strong> words · Model: <strong>${data.model}</strong> · 
+     Clean tokens preview: <em style="color:var(--accent2);">${data.clean_text}</em>`;
+
+  showLoading(false);
+  document.getElementById('result-card').style.display = 'flex';
+}
+
+function showLoading(show = true) {
+  document.getElementById('result-placeholder').style.display = show ? 'none' : '';
+  document.getElementById('result-loading').style.display = show ? 'flex' : 'none';
+  if (!show) {
+    // keep result card as-is (caller controls it)
+  }
+}
+
+function clearAll() {
+  document.getElementById('review-text').value = '';
+  onTextInput(document.getElementById('review-text'));
+  document.getElementById('result-card').style.display = 'none';
+  document.getElementById('result-loading').style.display = 'none';
+  document.getElementById('result-placeholder').style.display = '';
+  hideError();
+}
+
+function setBusy(busy) {
+  const btn  = document.getElementById('predict-btn');
+  const icon = document.getElementById('btn-icon');
+  const txt  = document.getElementById('btn-text');
+  btn.disabled = busy;
+  icon.innerHTML = busy ? '<span class="spinner"></span>' : '🔍';
+  txt.textContent = busy ? 'Analyzing…' : 'Predict Sentiment';
+}
+
+function showError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+  document.getElementById('error-banner').style.display = 'block';
+}
+function hideError() {
+  document.getElementById('error-banner').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HISTORY (localStorage)
+═══════════════════════════════════════════════════════════ */
+const HIST_KEY = 'sa_history_v1';
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveHistory(hist) {
+  localStorage.setItem(HIST_KEY, JSON.stringify(hist.slice(0, 50)));
+}
+
+function saveToHistory(data, rawText) {
+  const hist = loadHistory();
+  hist.unshift({
+    ts: Date.now(),
+    text: rawText.slice(0, 120),
+    sentiment: data.sentiment,
+    confidence: data.confidence,
+    model: data.model,
+  });
+  saveHistory(hist);
+  renderHistory();
+}
+
+function renderHistory() {
+  const hist = loadHistory();
+  const empty = document.getElementById('history-empty');
+  const list  = document.getElementById('history-list');
+
+  if (!hist.length) {
+    empty.style.display = '';
+    list.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  list.style.display = 'block';
+
+  list.innerHTML = hist.map((h, i) => {
+    const isPos = h.sentiment === 'positive';
+    const date  = new Date(h.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const pct   = Math.round(h.confidence * 100);
+    return `
+      <div class="hist-row" onclick="fillFromHistory(${i})">
+        <span style="font-size:1.2rem;">${isPos ? '😊' : '😡'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${h.text}${h.text.length >= 120 ? '…' : ''}</div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${h.model} · ${date}</div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="badge ${isPos ? 'pos' : 'neg'}" style="font-size:0.72rem;padding:2px 9px;">${isPos ? 'Positive' : 'Negative'}</span>
+          <span style="font-size:0.8rem;font-weight:700;color:var(--muted);min-width:36px;text-align:right;">${pct}%</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function fillFromHistory(i) {
+  const h = loadHistory()[i];
+  if (!h) return;
+  const ta = document.getElementById('review-text');
+  ta.value = h.text;
+  onTextInput(ta);
+  document.getElementById('section-tester').scrollIntoView({ behavior: 'smooth' });
+}
+
+function clearHistory() {
+  localStorage.removeItem(HIST_KEY);
+  renderHistory();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODEL CARDS + CHART
+═══════════════════════════════════════════════════════════ */
+async function loadModels() {
+  try {
+    const resp = await fetch(`${API_BASE}/models`);
+    const models = await resp.json();
+    renderModelCards(models);
+    renderBarChart(models);
+  } catch {
+    renderModelCards(null);
+  }
+}
+
+function renderModelCards(models) {
+  const container = document.getElementById('model-cards');
+  if (!models) {
+    container.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;grid-column:1/-1;">Connect the backend to see model metrics.</div>`;
+    return;
+  }
+  container.innerHTML = models.map(m => `
+    <div class="model-card ${m.best ? 'best' : ''}">
+      <div class="flex items-center justify-between mb-4">
+        <span style="font-weight:700;font-size:0.95rem;">${m.name}</span>
+        ${m.best ? '<span class="badge pos" style="font-size:0.72rem;padding:2px 9px;">⭐ Best</span>' : ''}
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Accuracy</span>
+        <span class="metric-val" style="color:var(--accent2);">${m.accuracy}%</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">F1 Score</span>
+        <span class="metric-val" style="color:var(--pos);">${m.f1}%</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderBarChart(models) {
+  const ctx = document.getElementById('barChart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  if (!models) return;
+
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: models.map(m => m.name),
+      datasets: [
+        { label: 'Accuracy', data: models.map(m => m.accuracy), backgroundColor: 'rgba(108,139,255,0.75)', borderRadius: 6 },
+        { label: 'F1 Score', data: models.map(m => m.f1), backgroundColor: 'rgba(167,139,250,0.55)', borderRadius: 6 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#9ca3af', font: { family: 'DM Sans', size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#6b7280', font: { family: 'DM Sans', size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { min: 85, max: 100, ticks: { color: '#6b7280', font: { family: 'DM Sans', size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.06)' } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATS (from backend)
+═══════════════════════════════════════════════════════════ */
+async function loadStats() {
+  try {
+    const resp = await fetch(`${API_BASE}/stats`);
+    const stats = await resp.json();
+    document.getElementById('s-total').textContent = stats.total.toLocaleString();
+    document.getElementById('s-pos').textContent   = stats.positive.toLocaleString();
+    document.getElementById('s-neg').textContent   = stats.negative.toLocaleString();
+    document.getElementById('s-acc').textContent   = stats.best_acc + '%';
+  } catch { /* keep dashes */ }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HEALTH CHECK & STATUS
+═══════════════════════════════════════════════════════════ */
+async function checkHealth() {
+  const dot   = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  const footer = document.getElementById('footer-status');
+  try {
+    const resp = await fetch(`${API_BASE}/health`);
+    if (resp.ok) {
+      dot.classList.add('online');
+      label.textContent = 'Backend online';
+      label.style.color = 'var(--pos)';
+      footer.textContent = 'Flask backend connected ✓';
+      footer.style.color = 'var(--pos)';
+    } else throw new Error();
+  } catch {
+    dot.classList.remove('online');
+    label.textContent = 'Backend offline';
+    label.style.color = 'var(--neg)';
+    footer.textContent = 'Run: python backend/app.py · then refresh';
+    footer.style.color = 'var(--neg)';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLL HELPER
+═══════════════════════════════════════════════════════════ */
+function scrollTo(selector) {
+  document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+(async function init() {
+  renderExamples();
+  renderHistory();
+  await checkHealth();
+  await loadStats();
+  await loadModels();
+
+  // Re-check health every 30s
+  setInterval(checkHealth, 30000);
+})();
+</script>
+</body>
+</html>

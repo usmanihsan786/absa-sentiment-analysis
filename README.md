@@ -1,0 +1,311 @@
+# Aspect-Based Sentiment Analysis (ABSA) System
+
+**Final Year Project — Natural Language Processing & Machine Learning**
+
+---
+
+## Problem Statement
+
+Standard sentiment analysis only gives a single label (positive/negative) for an entire review. This is insufficient for understanding *why* customers are satisfied or dissatisfied. A customer may love the product quality but hate the delivery — a single label loses this nuance.
+
+This project implements **Aspect-Based Sentiment Analysis (ABSA)**, which identifies specific aspects mentioned in a review (quality, price, delivery, etc.) and assigns a separate sentiment to each one.
+
+---
+
+## Objectives
+
+1. Extract product-related aspects from review text automatically
+2. Classify sentiment (Positive / Negative / Neutral) for each detected aspect
+3. Determine an overall sentiment (including Mixed) from aspect-level results
+4. Provide a modern web interface with charts, batch CSV analysis, and history
+5. Store analysis history in SQLite and allow CSV export
+
+---
+
+## Features
+
+- **Aspect Extraction** — detects 11 configurable aspects: quality, price, delivery, packaging, customer service, performance, battery, camera, design, size, usability
+- **Aspect-Level Sentiment** — separate sentiment + confidence per aspect using context-window scoring
+- **Overall Sentiment** — Positive / Negative / Neutral / Mixed based on aspect consensus
+- **Three ML Models** — Logistic Regression, Linear SVM, Naive Bayes (all TF-IDF based)
+- **Text Highlighting** — aspects color-coded directly in the review text
+- **Dashboard** — charts for overall distribution, aspect-wise breakdown, most discussed aspects
+- **Batch CSV Upload** — analyze up to 500 reviews at once
+- **Export** — download results as CSV
+- **History** — all analyses stored in SQLite with timestamps
+
+---
+
+## How Aspect-Based Sentiment Analysis Works
+
+```
+Input Review
+    │
+    ▼
+┌─────────────────────────────────────────────────────────┐
+│  1. TEXT PREPROCESSING                                  │
+│     Lowercase → remove HTML/URLs → remove punctuation  │
+│     → remove stopwords → simple lemmatization          │
+└────────────────────────────┬────────────────────────────┘
+                             │
+                    ┌────────┴────────┐
+                    │                 │
+           ┌────────▼───┐    ┌────────▼───────────┐
+           │  ML MODEL  │    │  ASPECT EXTRACTION │
+           │  (TF-IDF + │    │  Keyword matching  │
+           │  LR/SVM/NB)│    │  per aspect group  │
+           └────────┬───┘    └────────┬───────────┘
+                    │                 │
+           Overall  │    ┌────────────▼──────────────┐
+           Sentiment│    │ CONTEXT WINDOW SCORING    │
+                    │    │ For each matched keyword: │
+                    │    │ check ±8 words for pos/   │
+                    │    │ neg lexicon words; handle │
+                    │    │ negation (not, never, etc)│
+                    │    └────────────┬──────────────┘
+                    │                 │
+                    │    ┌────────────▼──────────────┐
+                    │    │ ASPECT SENTIMENT LABELS   │
+                    │    │ score > 0.3 → Positive    │
+                    │    │ score < -0.3 → Negative   │
+                    │    │ else → Neutral            │
+                    │    └────────────┬──────────────┘
+                    │                 │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼──────────────────────┐
+                    │ FINAL OVERALL SENTIMENT       │
+                    │ All Positive → Positive       │
+                    │ All Negative → Negative       │
+                    │ Mix of Pos+Neg → Mixed        │
+                    │ All Neutral → Neutral         │
+                    └───────────────────────────────┘
+```
+
+---
+
+## Technologies Used
+
+| Layer       | Technology                              |
+|-------------|-----------------------------------------|
+| Backend     | Python 3.10+, Flask                     |
+| ML Models   | scikit-learn (LR, SVM, Naive Bayes)     |
+| Features    | TF-IDF Vectorizer (unigrams + bigrams)  |
+| Aspect NLP  | Keyword matching + context-window scoring |
+| Database    | SQLite (via Python's built-in `sqlite3`)|
+| Frontend    | HTML5, CSS3, Vanilla JavaScript         |
+| Charts      | Chart.js 4.x                            |
+| Fonts       | Google Fonts (Syne + DM Sans)           |
+
+---
+
+## Project Structure
+
+```
+project/
+├── app.py               ← Flask API backend (ABSA logic lives here)
+├── train.py             ← Model training script (run once)
+├── index.html           ← Frontend (open directly in browser)
+├── model.pkl            ← Trained ML models (generated by train.py)
+├── history.db           ← SQLite analysis history (auto-created)
+├── Amazon_Reviews.csv   ← Training dataset
+└── README.md            ← This file
+```
+
+---
+
+## Installation
+
+### Requirements
+
+```
+Python 3.10+
+pip
+```
+
+### Install dependencies
+
+```bash
+pip install flask scikit-learn numpy pandas
+```
+
+---
+
+## How to Run
+
+### Step 1 — Train the model (first time only)
+
+```bash
+python train.py
+```
+
+This reads `Amazon_Reviews.csv`, trains three ML models, and saves `model.pkl`. It also prints accuracy, precision, recall, F1-score, and a confusion matrix for each model.
+
+### Step 2 — Start the Flask backend
+
+```bash
+python app.py
+```
+
+The server starts at `http://localhost:5000`.
+
+### Step 3 — Open the frontend
+
+Open `index.html` directly in your browser (no web server needed). Or run:
+
+```bash
+# Python 3
+python -m http.server 8080
+```
+Then visit `http://localhost:8080/index.html`
+
+---
+
+## API Documentation
+
+### `POST /predict`
+
+Analyze a single review.
+
+**Request:**
+```json
+{ "review": "The delivery was slow but quality is amazing", "model": "lr" }
+```
+
+**Response:**
+```json
+{
+  "review": "...",
+  "overall_sentiment": "Mixed",
+  "ml_sentiment": "Positive",
+  "ml_confidence": 0.87,
+  "pos_score": 0.87,
+  "neg_score": 0.13,
+  "model_used": "Logistic Regression",
+  "aspects": [
+    {
+      "aspect": "delivery",
+      "sentiment": "Negative",
+      "confidence": 0.72,
+      "matched_keywords": ["delivery", "slow"]
+    },
+    {
+      "aspect": "quality",
+      "sentiment": "Positive",
+      "confidence": 0.88,
+      "matched_keywords": ["quality", "amazing"]
+    }
+  ],
+  "highlights": [...],
+  "word_count": 10,
+  "aspects_found": 2
+}
+```
+
+Model options: `lr` (Logistic Regression), `svm` (Linear SVM), `nb` (Naive Bayes)
+
+---
+
+### `POST /analyze-csv`
+
+Upload a CSV for batch analysis. Use `multipart/form-data`.
+
+- Form field: `file` — the CSV file
+- Form field: `model` — model name (default: `lr`)
+
+CSV must have a `review` or `text` column. Returns up to 500 rows.
+
+---
+
+### `GET /dashboard-data`
+
+Returns aggregate statistics from history for charts.
+
+---
+
+### `GET /models`
+
+Returns list of all trained models with accuracy and F1-score.
+
+---
+
+### `GET /history?limit=50`
+
+Returns the last N analyzed reviews from history.
+
+---
+
+### `GET /export-csv`
+
+Downloads complete history as a CSV file.
+
+---
+
+### `GET /stats`
+
+Returns dataset statistics (total reviews, positive/negative counts).
+
+---
+
+### `GET /health`
+
+Health check. Returns `{"status": "ok"}`.
+
+---
+
+## Configuring Aspects
+
+To add or remove aspects, edit the `ASPECT_KEYWORDS` dictionary at the top of `app.py`:
+
+```python
+ASPECT_KEYWORDS = {
+    "quality": ["quality", "build", "material", ...],
+    "price":   ["price", "cost", "value", ...],
+    # Add your own:
+    "warranty": ["warranty", "guarantee", "coverage", ...],
+}
+```
+
+---
+
+## Evaluation Metrics
+
+After running `train.py`, you will see for each model:
+
+- **Accuracy** — overall correct predictions
+- **Precision** — of predicted positives, how many are actually positive
+- **Recall** — of actual positives, how many were correctly predicted
+- **F1-Score** — harmonic mean of precision and recall (best overall metric)
+- **Confusion Matrix** — TP / FP / TN / FN breakdown
+
+---
+
+## Screenshots
+
+*(Add screenshots here after running the project)*
+
+- `screenshots/analyze.png` — Single review analysis
+- `screenshots/dashboard.png` — Dashboard with charts
+- `screenshots/csv.png` — Batch CSV analysis
+- `screenshots/models.png` — Model evaluation page
+
+---
+
+## Future Enhancements
+
+- Fine-tune a BERT/RoBERTa transformer for aspect extraction
+- Aspect-level training data to replace keyword heuristics
+- Multi-language support
+- Real-time streaming analysis for large CSV files
+- User authentication and per-user history
+- REST API versioning (v1/v2)
+- Docker containerization
+- Deploy to AWS/Azure/Heroku
+
+---
+
+## Author
+
+**Final Year Project**  
+Department of Computer Science  
+Aspect-Based Sentiment Analysis for Product Reviews

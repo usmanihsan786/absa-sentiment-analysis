@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ABSA — Aspect-Based Sentiment Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:        #0d0f14;
+  --surface:   #161921;
+  --card:      #1e2330;
+  --border:    #2a3040;
+  --accent:    #5b7fff;
+  --accent2:   #a78bfa;
+  --pos:       #34d399;
+  --neg:       #f87171;
+  --neu:       #94a3b8;
+  --mix:       #fbbf24;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --radius:    12px;
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── TOP NAV ── */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 40px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(13,15,20,.92);
+  backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-logo { font-family: var(--font-head); font-size: 1.2rem; font-weight: 800; letter-spacing: -0.03em; }
+.nav-logo span { color: var(--accent); }
+.nav-tabs { display: flex; gap: 4px; }
+.nav-tab {
+  background: none; border: none; color: var(--muted);
+  padding: 7px 16px; border-radius: 8px; cursor: pointer;
+  font-family: var(--font-body); font-size: .85rem; font-weight: 500;
+  transition: all .2s;
+}
+.nav-tab:hover { color: var(--text); background: var(--card); }
+.nav-tab.active { color: var(--accent); background: rgba(91,127,255,.12); }
+
+/* ── HERO ── */
+.hero {
+  padding: 64px 40px 48px;
+  max-width: 900px; margin: 0 auto;
+  text-align: center;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(91,127,255,.1); border: 1px solid rgba(91,127,255,.25);
+  color: var(--accent); padding: 6px 14px; border-radius: 100px;
+  font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 24px;
+}
+.hero h1 {
+  font-family: var(--font-head); font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: 800; line-height: 1.1; letter-spacing: -.04em;
+  margin-bottom: 16px;
+}
+.hero h1 em { font-style: normal; color: var(--accent2); }
+.hero p { color: var(--muted); font-size: 1.05rem; max-width: 560px; margin: 0 auto; }
+
+/* ── LAYOUT ── */
+.main { max-width: 1100px; margin: 0 auto; padding: 0 40px 80px; }
+.section { margin-bottom: 40px; }
+.section-title {
+  font-family: var(--font-head); font-size: 1.1rem; font-weight: 700;
+  letter-spacing: -.01em; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px;
+}
+
+/* ── INPUT AREA ── */
+.input-row { display: flex; gap: 12px; align-items: flex-start; }
+.input-wrap { flex: 1; position: relative; }
+textarea {
+  width: 100%; background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-family: var(--font-body);
+  font-size: .95rem; padding: 16px; resize: vertical; min-height: 130px;
+  outline: none; transition: border-color .2s;
+  line-height: 1.7;
+}
+textarea:focus { border-color: var(--accent); }
+textarea::placeholder { color: var(--muted); }
+.char-count {
+  position: absolute; bottom: 10px; right: 14px;
+  font-size: .75rem; color: var(--muted);
+}
+.input-controls { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+select {
+  background: var(--surface); border: 1.5px solid var(--border); color: var(--text);
+  font-family: var(--font-body); font-size: .85rem; padding: 8px 12px;
+  border-radius: 8px; outline: none; cursor: pointer; flex: 1; min-width: 160px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 22px; border-radius: 8px; border: none;
+  font-family: var(--font-body); font-size: .9rem; font-weight: 600;
+  cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+}
+.btn-primary:hover { background: #4a6ef5; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(91,127,255,.35); }
+.btn-primary:active { transform: translateY(0); }
+.btn-secondary { background: var(--surface); color: var(--text); border: 1.5px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm { padding: 7px 14px; font-size: .8rem; }
+.btn-danger { background: rgba(248,113,113,.1); color: var(--neg); border: 1.5px solid rgba(248,113,113,.25); }
+.btn-danger:hover { background: rgba(248,113,113,.2); }
+
+/* ── LOADING ── */
+.spinner {
+  width: 20px; height: 20px;
+  border: 2.5px solid rgba(255,255,255,.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESULT CARD ── */
+#result-section { display: none; }
+#result-section.result-visible {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  animation: none !important;
+}
+.result-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.overall-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 20px; border-radius: 100px;
+  font-family: var(--font-head); font-weight: 700; font-size: 1rem;
+}
+.overall-pill.Positive  { background: rgba(52,211,153,.12); color: var(--pos); border: 1px solid rgba(52,211,153,.25); }
+.overall-pill.Negative  { background: rgba(248,113,113,.12); color: var(--neg); border: 1px solid rgba(248,113,113,.25); }
+.overall-pill.Neutral   { background: rgba(148,163,184,.1); color: var(--neu); border: 1px solid rgba(148,163,184,.2); }
+.overall-pill.Mixed     { background: rgba(251,191,36,.1);  color: var(--mix); border: 1px solid rgba(251,191,36,.25); }
+
+.meta-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  font-size: .75rem; padding: 4px 10px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+}
+
+/* ── HIGHLIGHT TEXT ── */
+.highlight-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; line-height: 2;
+  font-size: .95rem; word-break: break-word;
+  margin-bottom: 20px;
+}
+.h-word { display: inline; }
+.h-Positive { background: rgba(52,211,153,.18); color: #6ee7b7; border-radius: 4px; padding: 1px 4px; cursor: pointer; position: relative; }
+.h-Negative { background: rgba(248,113,113,.18); color: #fca5a5; border-radius: 4px; padding: 1px 4px; cursor: pointer; }
+.h-Neutral  { background: rgba(148,163,184,.12); color: #cbd5e1; border-radius: 4px; padding: 1px 4px; cursor: pointer; }
+
+/* ── ASPECT TABLE ── */
+.aspect-table { width: 100%; border-collapse: collapse; }
+.aspect-table th {
+  text-align: left; font-size: .75rem; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.aspect-table td { padding: 12px; border-bottom: 1px solid rgba(42,48,64,.5); font-size: .9rem; }
+.aspect-table tr:last-child td { border-bottom: none; }
+.aspect-name {
+  font-weight: 600; text-transform: capitalize;
+  display: flex; align-items: center; gap: 8px;
+}
+.aspect-icon { font-size: 1.1rem; }
+.sent-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 6px; font-size: .8rem; font-weight: 600;
+}
+.sent-badge.Positive { background: rgba(52,211,153,.12); color: var(--pos); }
+.sent-badge.Negative { background: rgba(248,113,113,.12); color: var(--neg); }
+.sent-badge.Neutral  { background: rgba(148,163,184,.1);  color: var(--neu); }
+.conf-bar { height: 5px; background: var(--border); border-radius: 3px; width: 80px; overflow: hidden; margin-top: 4px; }
+.conf-fill { height: 100%; border-radius: 3px; }
+.kw-tag {
+  display: inline-block; font-size: .72rem; padding: 2px 7px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--muted); margin: 2px 2px 0 0;
+}
+
+/* ── DASHBOARD STATS ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px;
+}
+.stat-card .label { font-size: .75rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.stat-card .value { font-family: var(--font-head); font-size: 2rem; font-weight: 800; }
+.stat-card.pos .value { color: var(--pos); }
+.stat-card.neg .value { color: var(--neg); }
+.stat-card.neu .value { color: var(--neu); }
+.stat-card.mix .value { color: var(--mix); }
+
+/* ── CHARTS ── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 680px) { .charts-grid { grid-template-columns: 1fr; } }
+.chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.chart-title { font-family: var(--font-head); font-size: .9rem; font-weight: 700; margin-bottom: 16px; }
+.chart-wrap { position: relative; height: 220px; }
+
+/* ── CSV ── */
+.csv-dropzone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 40px; text-align: center; color: var(--muted);
+  cursor: pointer; transition: all .2s;
+  background: var(--surface);
+}
+.csv-dropzone:hover { border-color: var(--accent); color: var(--text); }
+.csv-dropzone.drag-over { border-color: var(--accent); background: rgba(91,127,255,.06); }
+.csv-dropzone svg { margin-bottom: 12px; opacity: .5; }
+#csv-file { display: none; }
+#csv-results { display: none; margin-top: 20px; }
+.csv-summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.csv-table-wrap { max-height: 320px; overflow-y: auto; }
+.csv-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.csv-table th { position: sticky; top: 0; background: var(--card); text-align: left; padding: 8px 12px; color: var(--muted); font-size: .72rem; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.csv-table td { padding: 8px 12px; border-bottom: 1px solid rgba(42,48,64,.4); }
+
+/* ── MODELS ── */
+.models-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 620px) { .models-grid { grid-template-columns: 1fr; } }
+.model-card {
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  position: relative; transition: border-color .2s;
+}
+.model-card.best-model { border-color: var(--accent); }
+.best-badge {
+  position: absolute; top: -10px; right: 14px;
+  background: var(--accent); color: #fff;
+  font-size: .7rem; font-weight: 700; padding: 2px 10px; border-radius: 100px;
+}
+.model-name { font-family: var(--font-head); font-weight: 700; margin-bottom: 12px; }
+.metric-row { display: flex; justify-content: space-between; font-size: .83rem; margin-bottom: 6px; }
+.metric-row .k { color: var(--muted); }
+.metric-row .v { font-weight: 600; }
+
+/* ── HISTORY ── */
+.history-list { display: flex; flex-direction: column; gap: 10px; max-height: 480px; overflow-y: auto; }
+.history-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.history-sent { flex-shrink: 0; }
+.history-text { font-size: .88rem; color: var(--muted); flex: 1; line-height: 1.5; }
+.history-text strong { color: var(--text); display: block; margin-bottom: 3px; }
+.history-time { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+
+/* ── TABS CONTENT ── */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 40px; color: var(--muted); }
+.empty-state svg { margin-bottom: 12px; opacity: .3; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); padding: 12px 20px; border-radius: var(--radius);
+  font-size: .88rem; z-index: 999; opacity: 0; transform: translateY(10px);
+  transition: all .3s; pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+/* ── ERROR ── */
+.error-msg { background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.2); color: var(--neg); padding: 12px 16px; border-radius: var(--radius); font-size: .88rem; margin-top: 12px; display: none; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Animations */
+@keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+.fade-in { animation: fadeInUp .4s ease forwards; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">ABSA<span>.</span>ai</div>
+  <div class="nav-tabs">
+    <button type="button" class="nav-tab active" onclick="switchTab('analyze', event)">Analyze</button>
+    <button type="button" class="nav-tab" onclick="switchTab('dashboard', event)">Dashboard</button>
+    <button type="button" class="nav-tab" onclick="switchTab('csv', event)">Batch CSV</button>
+    <button type="button" class="nav-tab" onclick="switchTab('models', event)">Models</button>
+    <button type="button" class="nav-tab" onclick="switchTab('history', event)">History</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="6" fill="currentColor"/></svg>
+    Final Year Project — NLP · Machine Learning
+  </div>
+  <h1>Aspect-Based<br/><em>Sentiment Analysis</em></h1>
+  <p>Analyze product reviews at the aspect level — understand sentiment for quality, delivery, price, and more.</p>
+</div>
+
+<div class="main">
+
+<!-- ═══════════════ ANALYZE TAB ═══════════════ -->
+<div id="tab-analyze" class="tab-content active">
+
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Enter Review</div>
+    <div class="card">
+      <div class="input-wrap">
+        <textarea id="review-input" placeholder="Paste a product review here… e.g. 'The delivery was slow but the product quality is excellent and the price is very reasonable.'" oninput="updateCount()"></textarea>
+        <span class="char-count" id="char-count">0 / 5000</span>
+      </div>
+      <div class="input-controls">
+        <select id="model-select">
+          <option value="lr">Logistic Regression (Best for confidence)</option>
+          <option value="svm">Linear SVM (Fast, accurate)</option>
+          <option value="nb">Naive Bayes (Lightweight)</option>
+        </select>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loadExample()">Try Example</button>
+        <button type="button" class="btn btn-primary" id="analyze-btn" onclick="analyzeReview(event)">
+          <div class="spinner" id="spin"></div>
+          <span id="btn-text">Analyze Review</span>
+        </button>
+      </div>
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-section" class="section">
+
+    <div class="section-title"><span class="dot"></span> Analysis Result</div>
+
+    <div class="card">
+      <div class="result-header">
+        <div>
+          <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;">Overall Sentiment</div>
+          <div class="overall-pill" id="overall-pill">—</div>
+        </div>
+        <div class="meta-chips" id="meta-chips"></div>
+      </div>
+
+      <!-- Score bars -->
+      <div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:5px;">Positive Score</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:140px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+              <div id="pos-bar" style="height:100%;background:var(--pos);border-radius:3px;transition:width .6s;"></div>
+            </div>
+            <span id="pos-val" style="font-size:.82rem;font-weight:600;color:var(--pos);">—</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:5px;">Negative Score</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:140px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+              <div id="neg-bar" style="height:100%;background:var(--neg);border-radius:3px;transition:width .6s;"></div>
+            </div>
+            <span id="neg-val" style="font-size:.82rem;font-weight:600;color:var(--neg);">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Highlighted review -->
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Review with Highlighted Aspects</div>
+      <div class="highlight-box" id="highlight-box"></div>
+
+      <!-- Legend -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
+        <span style="font-size:.75rem;color:var(--pos);">● Positive aspect</span>
+        <span style="font-size:.75rem;color:var(--neg);">● Negative aspect</span>
+        <span style="font-size:.75rem;color:var(--neu);">● Neutral aspect</span>
+      </div>
+
+      <!-- Aspect table -->
+      <div id="aspects-wrap">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">Aspect-Level Sentiment</div>
+        <table class="aspect-table">
+          <thead>
+            <tr>
+              <th>Aspect</th>
+              <th>Sentiment</th>
+              <th>Confidence</th>
+              <th>Detected Keywords</th>
+            </tr>
+          </thead>
+          <tbody id="aspect-tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="no-aspects" style="display:none;color:var(--muted);font-size:.88rem;padding:12px 0;">
+        No specific aspects detected. Overall sentiment is based on ML model prediction.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ DASHBOARD TAB ═══════════════ -->
+<div id="tab-dashboard" class="tab-content">
+
+  <div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div class="section-title" style="margin:0"><span class="dot"></span> Overview Stats</div>
+      <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">↻ Refresh</button>
+    </div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="label">Total Analyzed</div><div class="value" id="dash-total">—</div></div>
+      <div class="stat-card pos"><div class="label">Positive</div><div class="value" id="dash-pos">—</div></div>
+      <div class="stat-card neg"><div class="label">Negative</div><div class="value" id="dash-neg">—</div></div>
+      <div class="stat-card neu"><div class="label">Neutral</div><div class="value" id="dash-neu">—</div></div>
+      <div class="stat-card mix"><div class="label">Mixed</div><div class="value" id="dash-mix">—</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Insights</div>
+    <div class="stats-grid" id="insights-grid" style="grid-template-columns:repeat(3,1fr);">
+      <div class="stat-card"><div class="label">Most Discussed</div><div class="value" style="font-size:1.1rem;text-transform:capitalize" id="ins-discussed">—</div></div>
+      <div class="stat-card pos"><div class="label">Most Positive Aspect</div><div class="value" style="font-size:1.1rem;text-transform:capitalize" id="ins-positive">—</div></div>
+      <div class="stat-card neg"><div class="label">Most Negative Aspect</div><div class="value" style="font-size:1.1rem;text-transform:capitalize" id="ins-negative">—</div></div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Overall Sentiment Distribution</div>
+      <div class="chart-wrap"><canvas id="chart-overall"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Aspect-wise Sentiment</div>
+      <div class="chart-wrap"><canvas id="chart-aspect"></canvas></div>
+    </div>
+    <div class="chart-card" style="grid-column:span 2">
+      <div class="chart-title">Most Discussed Aspects</div>
+      <div class="chart-wrap"><canvas id="chart-freq"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CSV TAB ═══════════════ -->
+<div id="tab-csv" class="tab-content">
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Batch Analysis</div>
+    <div class="card">
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px;">Upload a CSV file with a <code style="background:var(--surface);padding:2px 6px;border-radius:4px;">review</code> or <code style="background:var(--surface);padding:2px 6px;border-radius:4px;">text</code> column to analyze multiple reviews at once. Max 500 rows per upload.</p>
+      <div class="csv-dropzone" id="dropzone" onclick="document.getElementById('csv-file').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+        <div style="font-weight:600;margin-bottom:4px;">Drop CSV here or click to browse</div>
+        <div style="font-size:.82rem;">Supported: .csv files with review text column</div>
+      </div>
+      <input type="file" id="csv-file" accept=".csv" onchange="handleCsvUpload(this.files[0])"/>
+
+      <div style="display:flex;gap:10px;align-items:center;margin-top:14px;">
+        <select id="csv-model" style="max-width:220px;">
+          <option value="lr">Logistic Regression</option>
+          <option value="svm">Linear SVM</option>
+          <option value="nb">Naive Bayes</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="csv-btn" onclick="submitCsv()" disabled>
+          <div class="spinner" id="csv-spin"></div>
+          <span id="csv-btn-text">Upload & Analyze</span>
+        </button>
+      </div>
+      <div class="error-msg" id="csv-error"></div>
+    </div>
+  </div>
+
+  <div id="csv-results">
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="section-title" style="margin:0"><span class="dot"></span> Batch Results</div>
+        <button class="btn btn-secondary btn-sm" onclick="downloadCsvResults()">⬇ Download CSV</button>
+      </div>
+      <div class="csv-summary" id="csv-summary"></div>
+      <div class="csv-table-wrap">
+        <table class="csv-table">
+          <thead><tr><th>#</th><th>Review (truncated)</th><th>Sentiment</th><th>Aspects Found</th></tr></thead>
+          <tbody id="csv-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODELS TAB ═══════════════ -->
+<div id="tab-models" class="tab-content">
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Trained Models & Evaluation</div>
+    <div class="models-grid" id="models-grid">
+      <div class="stat-card" style="grid-column:span 3;color:var(--muted);text-align:center;padding:30px;">Loading models…</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Dataset Statistics</div>
+    <div class="card" id="dataset-stats" style="color:var(--muted);">Loading…</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Configured Aspects</div>
+    <div class="card">
+      <div id="aspect-tags" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ HISTORY TAB ═══════════════ -->
+<div id="tab-history" class="tab-content">
+  <div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div class="section-title" style="margin:0"><span class="dot"></span> Recent Analyses</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="loadHistory()">↻ Refresh</button>
+        <a href="http://localhost:5000/export-csv" class="btn btn-secondary btn-sm" download>⬇ Export All</a>
+      </div>
+    </div>
+    <div class="history-list" id="history-list">
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <div>No history yet. Analyze a review to start.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .main -->
+
+<div id="toast"></div>
+
+<script>
+// ────────────────────────────────────────
+// CONFIG
+// ────────────────────────────────────────
+const API = '';
+
+const ASPECT_ICONS = {
+  quality:'🏆', price:'💰', delivery:'🚚', packaging:'📦',
+  customer_service:'🎧', performance:'⚡', battery:'🔋',
+  camera:'📸', design:'🎨', size:'📐', usability:'🖱️'
+};
+
+const SENT_COLOR = { Positive: getComputedStyle(document.documentElement).getPropertyValue('--pos').trim(),
+                     Negative: getComputedStyle(document.documentElement).getPropertyValue('--neg').trim(),
+                     Neutral:  getComputedStyle(document.documentElement).getPropertyValue('--neu').trim(),
+                     Mixed:    getComputedStyle(document.documentElement).getPropertyValue('--mix').trim() };
+
+// ────────────────────────────────────────
+// TABS
+// ────────────────────────────────────────
+function switchTab(name, e) {
+  if (e) e.preventDefault();
+
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+
+  const tab = document.getElementById('tab-' + name);
+  if (tab) tab.classList.add('active');
+
+  const clicked = e && e.currentTarget ? e.currentTarget : null;
+  if (clicked) clicked.classList.add('active');
+
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'history')   loadHistory();
+  if (name === 'models')    loadModels();
+}
+
+// ────────────────────────────────────────
+// CHAR COUNT
+// ────────────────────────────────────────
+function updateCount() {
+  const v = document.getElementById('review-input').value.length;
+  document.getElementById('char-count').textContent = v + ' / 5000';
+}
+
+// ────────────────────────────────────────
+// EXAMPLE
+// ────────────────────────────────────────
+const EXAMPLES = [
+  "The delivery was extremely slow and arrived two weeks late, but the product quality is absolutely excellent and very well packaged. The price is reasonable for what you get.",
+  "Terrible customer service — they ignored my emails for days. The battery life is also disappointing, barely lasting 4 hours. However, the camera takes stunning photos and the design looks premium.",
+  "Great value for money! Fast delivery, solid build quality, and easy to use. The size is perfect and fits in my pocket comfortably."
+];
+let exIdx = 0;
+function loadExample() {
+  document.getElementById('review-input').value = EXAMPLES[exIdx % EXAMPLES.length];
+  exIdx++;
+  updateCount();
+}
+
+// ────────────────────────────────────────
+// ANALYZE SINGLE REVIEW
+// ────────────────────────────────────────
+async function analyzeReview(e) {
+  if (e) e.preventDefault();
+
+  const textEl = document.getElementById('review-input');
+  const modelEl = document.getElementById('model-select');
+  const errEl = document.getElementById('error-msg');
+  const resultSection = document.getElementById('result-section');
+
+  const text = textEl ? textEl.value.trim() : '';
+  const model = modelEl ? modelEl.value : 'lr';
+
+  if (errEl) {
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+  }
+
+  if (!text) {
+    showError(errEl, 'Please enter a review text.');
+    return;
+  }
+
+  // Keep old result visible while new request is loading.
+  // Do NOT hide result-section here.
+  setLoading(true);
+
+  try {
+    console.log('[ABSA] Analyze clicked');
+
+    const res = await fetch(API + '/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ review: text, model: model })
+    });
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (jsonErr) {
+      throw new Error('Backend did not return valid JSON. Check Flask terminal.');
+    }
+
+    console.log('[ABSA] API response:', data);
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Server error');
+    }
+
+    renderResult(data);
+
+  } catch (err) {
+    console.error('[ABSA] Analyze failed:', err);
+    showError(errEl, 'Cannot analyze review. Make sure Flask is running on http://localhost:5000. Error: ' + err.message);
+
+    if (resultSection) {
+      resultSection.classList.add('result-visible');
+      resultSection.style.setProperty('display', 'block', 'important');
+    }
+  } finally {
+    // Important: only stop loader. Never hide or clear the result here.
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  const spin = document.getElementById('spin');
+  const btnText = document.getElementById('btn-text');
+  const btn = document.getElementById('analyze-btn');
+
+  if (spin) spin.style.display = on ? 'block' : 'none';
+  if (btnText) btnText.textContent = on ? 'Analyzing…' : 'Analyze Review';
+  if (btn) btn.disabled = on;
+}
+
+function showError(el, msg) {
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ────────────────────────────────────────
+// RENDER RESULT
+// ────────────────────────────────────────
+function safeText(value, fallback = '') {
+  return value === undefined || value === null ? fallback : String(value);
+}
+
+function safeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function escapeHtml(value) {
+  return safeText(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function normalizeSentiment(value) {
+  const s = safeText(value, 'Neutral').trim();
+  if (['Positive', 'Negative', 'Neutral', 'Mixed'].includes(s)) return s;
+  const lower = s.toLowerCase();
+  if (lower.includes('pos')) return 'Positive';
+  if (lower.includes('neg')) return 'Negative';
+  if (lower.includes('mix')) return 'Mixed';
+  return 'Neutral';
+}
+
+function renderResult(data) {
+  console.log('[ABSA] renderResult started');
+
+  const section = document.getElementById('result-section');
+  const pill = document.getElementById('overall-pill');
+  const chips = document.getElementById('meta-chips');
+  const tbody = document.getElementById('aspect-tbody');
+  const noAsp = document.getElementById('no-aspects');
+  const box = document.getElementById('highlight-box');
+
+  if (!section) {
+    console.error('[ABSA] result-section not found');
+    return;
+  }
+
+  // Force the report to stay visible.
+  section.classList.add('result-visible');
+  section.style.setProperty('display', 'block', 'important');
+  section.style.setProperty('opacity', '1', 'important');
+  section.style.setProperty('visibility', 'visible', 'important');
+  section.style.setProperty('transform', 'none', 'important');
+
+  try {
+    const overall = normalizeSentiment(data.overall_sentiment || data.sentiment || data.overall);
+
+    if (pill) {
+      pill.className = 'overall-pill ' + overall;
+      pill.textContent = sentIcon(overall) + ' ' + overall;
+    }
+
+    const mlConf = data.ml_confidence !== undefined && data.ml_confidence !== null
+      ? (safeNumber(data.ml_confidence, 0) * 100).toFixed(0) + '%'
+      : '—';
+
+    if (chips) {
+      chips.innerHTML = `
+        <span class="chip">Model: ${escapeHtml(data.model_used || '—')}</span>
+        <span class="chip">Words: ${escapeHtml(data.word_count ?? '—')}</span>
+        <span class="chip">Aspects: ${escapeHtml(data.aspects_found ?? '—')}</span>
+        <span class="chip">ML: ${escapeHtml(data.ml_sentiment || '—')} (${escapeHtml(mlConf)})</span>
+      `;
+    }
+
+    const posScore = Math.max(0, Math.min(1, safeNumber(data.pos_score, 0)));
+    const negScore = Math.max(0, Math.min(1, safeNumber(data.neg_score, 0)));
+    const posP = (posScore * 100).toFixed(1);
+    const negP = (negScore * 100).toFixed(1);
+
+    const posBar = document.getElementById('pos-bar');
+    const negBar = document.getElementById('neg-bar');
+    const posVal = document.getElementById('pos-val');
+    const negVal = document.getElementById('neg-val');
+
+    if (posBar) posBar.style.width = posP + '%';
+    if (negBar) negBar.style.width = negP + '%';
+    if (posVal) posVal.textContent = posP + '%';
+    if (negVal) negVal.textContent = negP + '%';
+
+    renderHighlights(Array.isArray(data.highlights) ? data.highlights : []);
+
+    const aspectList = Array.isArray(data.aspects)
+      ? data.aspects
+      : Array.isArray(data.aspect_results)
+        ? data.aspect_results
+        : [];
+
+    if (!tbody || !noAsp) {
+      console.warn('[ABSA] aspect table elements missing');
+      return;
+    }
+
+    if (aspectList.length === 0) {
+      tbody.innerHTML = '';
+      noAsp.style.display = 'block';
+    } else {
+      noAsp.style.display = 'none';
+      tbody.innerHTML = aspectList.map(a => {
+        const rawAspect = safeText(a.aspect, 'unknown');
+        const aspect = rawAspect || 'unknown';
+        const sentiment = normalizeSentiment(a.sentiment);
+        const confidence = Math.max(0, Math.min(1, safeNumber(a.confidence, 0.55)));
+        const keywords = Array.isArray(a.matched_keywords) ? a.matched_keywords : [];
+        const fillColor = sentiment === 'Positive' ? 'var(--pos)' : sentiment === 'Negative' ? 'var(--neg)' : 'var(--neu)';
+
+        return `
+          <tr>
+            <td>
+              <div class="aspect-name">
+                <span class="aspect-icon">${ASPECT_ICONS[aspect] || '🔍'}</span>
+                ${escapeHtml(aspect.replaceAll('_', ' '))}
+              </div>
+            </td>
+            <td>
+              <span class="sent-badge ${sentiment}">
+                ${sentIcon(sentiment)} ${escapeHtml(sentiment)}
+              </span>
+            </td>
+            <td>
+              <div style="font-size:.82rem;font-weight:600;">${(confidence * 100).toFixed(0)}%</div>
+              <div class="conf-bar">
+                <div class="conf-fill" style="width:${confidence * 100}%;background:${fillColor}"></div>
+              </div>
+            </td>
+            <td>
+              ${keywords.map(k => `<span class="kw-tag">${escapeHtml(k)}</span>`).join('')}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Do not use scrollIntoView here. It was making the report appear to vanish on some screens.
+    console.log('[ABSA] renderResult finished. Report is visible.');
+
+  } catch (err) {
+    console.error('[ABSA] renderResult crashed:', err);
+
+    section.classList.add('result-visible');
+    section.style.setProperty('display', 'block', 'important');
+
+    if (box) {
+      box.innerHTML = `
+        <div class="error-msg" style="display:block;">
+          Backend result was received, but frontend rendering failed: ${escapeHtml(err.message)}
+        </div>
+      `;
+    }
+  }
+}
+
+function renderHighlights(highlights) {
+  const box = document.getElementById('highlight-box');
+  if (!box) return;
+
+  if (!Array.isArray(highlights) || highlights.length === 0) {
+    const input = document.getElementById('review-input');
+    box.textContent = input ? input.value : '';
+    return;
+  }
+
+  box.innerHTML = highlights.map(h => {
+    const word = escapeHtml(h.word || '');
+    const aspect = safeText(h.aspect, '');
+    const sentiment = h.sentiment ? normalizeSentiment(h.sentiment) : '';
+
+    if (aspect && sentiment) {
+      return `<span class="h-word h-${sentiment}" title="${escapeHtml(aspect)}: ${escapeHtml(sentiment)}">${word}</span> `;
+    }
+
+    return `<span class="h-word">${word}</span> `;
+  }).join('');
+}
+
+function sentIcon(s) {
+  return { Positive:'✅', Negative:'❌', Neutral:'➖', Mixed:'🔀' }[s] || '●';
+}
+
+// ────────────────────────────────────────
+// DASHBOARD
+// ────────────────────────────────────────
+let chartOverall = null, chartAspect = null, chartFreq = null;
+
+async function loadDashboard() {
+  try {
+    const res  = await fetch(API + '/dashboard-data');
+    const data = await res.json();
+    if (data.total === 0) {
+      document.getElementById('dash-total').textContent = '0';
+      return;
+    }
+    const oc = data.overall_counts;
+    document.getElementById('dash-total').textContent   = data.total;
+    document.getElementById('dash-pos').textContent     = oc.Positive  || 0;
+    document.getElementById('dash-neg').textContent     = oc.Negative  || 0;
+    document.getElementById('dash-neu').textContent     = oc.Neutral   || 0;
+    document.getElementById('dash-mix').textContent     = oc.Mixed     || 0;
+
+    const ins = data.insights || {};
+    document.getElementById('ins-discussed').textContent = (ins.most_discussed||'—').replace('_',' ');
+    document.getElementById('ins-positive').textContent  = (ins.most_positive ||'—').replace('_',' ');
+    document.getElementById('ins-negative').textContent  = (ins.most_negative ||'—').replace('_',' ');
+
+    buildOverallChart(oc);
+    buildAspectChart(data.aspect_counts);
+    buildFreqChart(data.aspect_counts);
+  } catch(e) {
+    console.warn('Dashboard load failed:', e);
+  }
+}
+
+const CC = { Positive:'#34d399', Negative:'#f87171', Neutral:'#94a3b8', Mixed:'#fbbf24' };
+
+function buildOverallChart(oc) {
+  const ctx = document.getElementById('chart-overall').getContext('2d');
+  if (chartOverall) chartOverall.destroy();
+  chartOverall = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(oc),
+      datasets: [{ data: Object.values(oc), backgroundColor: Object.keys(oc).map(k=>CC[k]||'#666'), borderWidth: 0, hoverOffset: 8 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { labels: { color:'#94a3b8', font: { family:'DM Sans' }, boxWidth:12 } } }
+    }
+  });
+}
+
+function buildAspectChart(ac) {
+  const ctx = document.getElementById('chart-aspect').getContext('2d');
+  if (chartAspect) chartAspect.destroy();
+  const labels = Object.keys(ac);
+  if (!labels.length) return;
+  chartAspect = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels.map(l=>l.replace('_',' ')),
+      datasets: [
+        { label:'Positive', data: labels.map(l=>ac[l].Positive||0), backgroundColor:'#34d399', borderRadius:4 },
+        { label:'Negative', data: labels.map(l=>ac[l].Negative||0), backgroundColor:'#f87171', borderRadius:4 },
+        { label:'Neutral',  data: labels.map(l=>ac[l].Neutral ||0), backgroundColor:'#475569', borderRadius:4 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        x:{ ticks:{color:'#64748b',font:{family:'DM Sans',size:10}}, grid:{color:'rgba(255,255,255,.04)'} },
+        y:{ ticks:{color:'#64748b',font:{family:'DM Sans'}},         grid:{color:'rgba(255,255,255,.04)'} }
+      },
+      plugins:{ legend:{ labels:{ color:'#94a3b8', font:{family:'DM Sans'}, boxWidth:12 } } }
+    }
+  });
+}
+
+function buildFreqChart(ac) {
+  const ctx = document.getElementById('chart-freq').getContext('2d');
+  if (chartFreq) chartFreq.destroy();
+  const totals = Object.entries(ac).map(([k,v]) => ({ k, t:v.Positive+v.Negative+v.Neutral }))
+                       .sort((a,b)=>b.t-a.t).slice(0,10);
+  if (!totals.length) return;
+  chartFreq = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: totals.map(e=>e.k.replace('_',' ')),
+      datasets:[{ label:'Mentions', data:totals.map(e=>e.t), backgroundColor:'#5b7fff99', hoverBackgroundColor:'#5b7fff', borderRadius:6 }]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{ ticks:{color:'#64748b'}, grid:{color:'rgba(255,255,255,.04)'} },
+        y:{ ticks:{color:'#94a3b8',font:{family:'DM Sans'}}, grid:{display:false} }
+      },
+      plugins:{ legend:{display:false} }
+    }
+  });
+}
+
+// ────────────────────────────────────────
+// CSV BATCH
+// ────────────────────────────────────────
+let csvFile = null;
+let csvData = null;
+
+function dragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('drag-over'); }
+function dragLeave()  { document.getElementById('dropzone').classList.remove('drag-over'); }
+function dropFile(e)  { e.preventDefault(); dragLeave(); const f=e.dataTransfer.files[0]; if(f) handleCsvUpload(f); }
+
+function handleCsvUpload(file) {
+  if (!file || !file.name.endsWith('.csv')) { showError(document.getElementById('csv-error'),'Please upload a .csv file.'); return; }
+  csvFile = file;
+  document.getElementById('dropzone').innerHTML = `<div style="font-weight:600;color:var(--accent)">${file.name}</div><div style="font-size:.82rem;color:var(--muted)">${(file.size/1024).toFixed(1)} KB — ready to analyze</div>`;
+  document.getElementById('csv-btn').disabled = false;
+}
+
+async function submitCsv() {
+  if (!csvFile) return;
+  const btn = document.getElementById('csv-btn');
+  document.getElementById('csv-spin').style.display = 'block';
+  document.getElementById('csv-btn-text').textContent = 'Analyzing…';
+  btn.disabled = true;
+  document.getElementById('csv-error').style.display = 'none';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', csvFile);
+    fd.append('model', document.getElementById('csv-model').value);
+    const res  = await fetch(API + '/analyze-csv', { method:'POST', body:fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Server error');
+    csvData = data;
+    renderCsvResults(data);
+  } catch(e) {
+    showError(document.getElementById('csv-error'), 'Error: ' + e.message);
+  } finally {
+    document.getElementById('csv-spin').style.display = 'none';
+    document.getElementById('csv-btn-text').textContent = 'Upload & Analyze';
+    btn.disabled = false;
+  }
+}
+
+function renderCsvResults(data) {
+  const s = data.summary;
+  document.getElementById('csv-summary').innerHTML = [
+    {l:'Total',v:s.total},{l:'Positive',v:s.positive,cls:'pos'},{l:'Negative',v:s.negative,cls:'neg'},
+    {l:'Neutral',v:s.neutral,cls:'neu'},{l:'Mixed',v:s.mixed,cls:'mix'}
+  ].map(x=>`<div class="stat-card ${x.cls||''}" style="padding:12px 18px"><div class="label">${x.l}</div><div class="value" style="font-size:1.4rem">${x.v}</div></div>`).join('');
+
+  document.getElementById('csv-tbody').innerHTML = data.results.map(r=>`
+    <tr>
+      <td style="color:var(--muted)">${r.row}</td>
+      <td>${r.review.substring(0,100)}${r.review.length>100?'…':''}</td>
+      <td><span class="sent-badge ${r.overall_sentiment}">${sentIcon(r.overall_sentiment)} ${r.overall_sentiment}</span></td>
+      <td>${r.aspects.map(a=>`<span class="kw-tag">${ASPECT_ICONS[a.aspect]||''}${a.aspect.replace('_',' ')}: <span style="color:${a.sentiment==='Positive'?'var(--pos)':a.sentiment==='Negative'?'var(--neg)':'var(--neu)'}">${a.sentiment}</span></span>`).join('')||'<span style="color:var(--muted)">none</span>'}</td>
+    </tr>
+  `).join('');
+  document.getElementById('csv-results').style.display = 'block';
+}
+
+function downloadCsvResults() {
+  if (!csvData) return;
+  const rows = [['Row','Review','Overall Sentiment','Aspects']];
+  csvData.results.forEach(r => {
+    rows.push([r.row, '"' + r.review.replace(/"/g,'""') + '"', r.overall_sentiment,
+      '"' + r.aspects.map(a=>a.aspect+':'+a.sentiment).join(', ') + '"']);
+  });
+  const blob = new Blob([rows.map(r=>r.join(',')).join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'absa_results.csv'; a.click();
+}
+
+// ────────────────────────────────────────
+// MODELS
+// ────────────────────────────────────────
+async function loadModels() {
+  try {
+    const [modRes, statRes, dashRes] = await Promise.all([
+      fetch(API + '/models'), fetch(API + '/stats'), fetch(API + '/dashboard-data')
+    ]);
+    const models = await modRes.json();
+    const stats  = await statRes.json();
+    const dash   = await dashRes.json();
+
+    document.getElementById('models-grid').innerHTML = models.map(m=>`
+      <div class="model-card ${m.best?'best-model':''}">
+        ${m.best ? '<div class="best-badge">Best</div>' : ''}
+        <div class="model-name">${m.name}</div>
+        <div class="metric-row"><span class="k">Accuracy</span><span class="v">${m.accuracy}%</span></div>
+        <div class="metric-row"><span class="k">F1-Score</span><span class="v">${m.f1}%</span></div>
+        ${m.precision !== undefined ? `<div class="metric-row"><span class="k">Precision</span><span class="v">${m.precision}%</span></div>` : ''}
+        ${m.recall    !== undefined ? `<div class="metric-row"><span class="k">Recall</span><span class="v">${m.recall}%</span></div>` : ''}
+      </div>
+    `).join('');
+
+    document.getElementById('dataset-stats').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;">
+        <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">Total Reviews</div><div style="font-family:var(--font-head);font-size:1.5rem;font-weight:800">${(stats.total||0).toLocaleString()}</div></div>
+        <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">Positive</div><div style="font-family:var(--font-head);font-size:1.5rem;font-weight:800;color:var(--pos)">${(stats.positive||0).toLocaleString()}</div></div>
+        <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">Negative</div><div style="font-family:var(--font-head);font-size:1.5rem;font-weight:800;color:var(--neg)">${(stats.negative||0).toLocaleString()}</div></div>
+        <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">Best Accuracy</div><div style="font-family:var(--font-head);font-size:1.5rem;font-weight:800;color:var(--accent)">${stats.best_acc||0}%</div></div>
+      </div>
+    `;
+
+    if (dash.available_aspects) {
+      document.getElementById('aspect-tags').innerHTML = dash.available_aspects.map(a=>
+        `<span style="background:var(--surface);border:1px solid var(--border);padding:6px 14px;border-radius:20px;font-size:.82rem;">${ASPECT_ICONS[a]||'🔍'} ${a.replace('_',' ')}</span>`
+      ).join('');
+    }
+  } catch(e) { console.warn('Models load failed:', e); }
+}
+
+// ────────────────────────────────────────
+// HISTORY
+// ────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const res  = await fetch(API + '/history?limit=30');
+    const data = await res.json();
+    const list = document.getElementById('history-list');
+    if (!data.length) {
+      list.innerHTML = `<div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
+        <div>No history yet.</div></div>`;
+      return;
+    }
+    list.innerHTML = data.map(h => {
+      const dt = new Date(h.analyzed_at).toLocaleString();
+      return `
+        <div class="history-item">
+          <div class="history-sent"><span class="sent-badge ${h.overall}" style="font-size:.72rem;">${sentIcon(h.overall)} ${h.overall}</span></div>
+          <div class="history-text"><strong>${h.review.substring(0,120)}${h.review.length>120?'…':''}</strong>
+            ${h.aspects.map(a=>`<span class="kw-tag">${a.aspect.replace('_',' ')}: ${a.sentiment}</span>`).join('')}
+          </div>
+          <div class="history-time">${dt}</div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) { console.warn('History load failed:', e); }
+}
+
+// ────────────────────────────────────────
+// TOAST
+// ────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ────────────────────────────────────────
+// PAGE RELOAD GUARD (debug + safety)
+// ────────────────────────────────────────
+window.addEventListener('beforeunload', function(e) {
+  console.warn('[ABSA] beforeunload fired — page is reloading! This should NOT happen on Analyze click.');
+});
+
+// ────────────────────────────────────────
+// KEYBOARD SHORTCUT
+// ────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') analyzeReview();
+});
+
+// Defensive event binding: prevents double-submit/reload behavior in every browser.
+document.addEventListener('DOMContentLoaded', function () {
+  const btn = document.getElementById('analyze-btn');
+  if (btn) {
+    btn.setAttribute('type', 'button');
+  }
+});
+
+</script>
+</body>
+</html>cls
